@@ -1,0 +1,7 @@
+{
+  "name": "evenyx",
+  "private": true,
+  "type": "module",
+  "description": "EVE Online market data and analysis",
+  "dependencies": {}
+}

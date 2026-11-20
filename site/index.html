@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EveNYX — Jita market screener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#d6e4ee; --void:#0a0e14; --panel:#121823; --panel2:#18202e;
+    --rule:#243246; --cyan:#4fc3dc; --amber:#d8a13a;
+    --up:#45a07a; --down:#c0564a; --muted:#7d8da0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--void);color:var(--ink);
+    font:400 15px/1.5 "IBM Plex Mono",ui-monospace,monospace}
+  header{border-bottom:1px solid var(--rule);padding:20px;background:var(--panel)}
+  .top{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline}
+  h1{font:700 27px/1 "Chakra Petch",sans-serif;margin:0;letter-spacing:.04em}
+  h1 span{color:var(--cyan)}
+  .stamp{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+
+  .strip{display:flex;flex-wrap:wrap;margin:14px 20px 0;
+    border:1px solid var(--rule);background:var(--panel)}
+  .strip .cell{flex:1 1 130px;padding:11px 14px;border-right:1px solid var(--rule)}
+  .strip .cell:last-child{border-right:none}
+  .strip .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .strip .v{font:700 19px/1.2 "Chakra Petch",sans-serif;margin-top:3px;color:var(--cyan)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:14px 20px;border-bottom:1px solid var(--rule)}
+  input,select{font:inherit;font-size:13px;padding:7px 10px;
+    background:var(--panel2);color:var(--ink);border:1px solid var(--rule)}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+  input[type=search]{min-width:210px;flex:1;max-width:330px}
+  .chip{font:500 12px/1 "IBM Plex Mono",monospace;padding:8px 12px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--rule)}
+  .chip[aria-pressed=true]{background:var(--cyan);color:var(--void);border-color:var(--cyan)}
+  .hint{font-size:12px;color:var(--muted);padding:12px 20px 0;max-width:92ch}
+  .hint b{color:var(--ink)}
+
+  .wrap{padding:0 20px 70px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:right;font-weight:600;font-size:11px;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--muted);padding:12px 8px;
+    border-bottom:1px solid var(--rule);position:sticky;top:0;
+    background:var(--void);cursor:pointer;white-space:nowrap}
+  th.txt{text-align:left}
+  th[aria-sort]{color:var(--ink)}
+  th[aria-sort=descending]::after{content:" \2193"} th[aria-sort=ascending]::after{content:" \2191"}
+  td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--panel2);white-space:nowrap}
+  td.txt{text-align:left;white-space:normal;font-family:"Chakra Petch",sans-serif;font-size:14px}
+  tbody tr:hover{background:var(--panel)}
+  .up{color:var(--up)} .down{color:var(--down)}
+  .tag{display:inline-block;padding:1px 6px;margin-left:7px;font-size:10px;
+    letter-spacing:.06em;background:var(--amber);color:var(--void)}
+  .note{padding:38px 20px;color:var(--muted);max-width:66ch}
+  .note b{color:var(--ink)}
+  code{background:var(--panel2);padding:1px 5px;border:1px solid var(--rule);font-size:12px}
+  @media (max-width:860px){.hide-sm{display:none}h1{font-size:22px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top">
+    <h1>Eve<span>NYX</span></h1>
+    <span class="stamp" id="stamp">loading&hellip;</span>
+  </div>
+</header>
+
+<div class="strip" id="strip" hidden></div>
+
+<div class="controls">
+  <input type="search" id="q" placeholder="Search item name" autocomplete="off">
+  <button class="chip" id="f-cheap" aria-pressed="true">Oversold (z &le; -1.5)</button>
+  <button class="chip" id="f-margin" aria-pressed="false">Profitable after fees</button>
+  <select id="minvol">
+    <option value="0">Any volume</option>
+    <option value="100">100+ /day</option>
+    <option value="1000" selected>1,000+ /day</option>
+    <option value="100000">100,000+ /day</option>
+  </select>
+  <select id="maxspread">
+    <option value="0">Any spread</option>
+    <option value="5">&le; 5% spread</option>
+    <option value="15">&le; 15%</option>
+    <option value="40">&le; 40%</option>
+  </select>
+</div>
+
+<div class="hint" id="hint">
+  Jita order book, refreshed daily after downtime, joined to 414 days of ESI
+  market history. <b>Spread</b> is best bid to best ask — the real one, which
+  RuneScape never publishes. <b>After fees</b> deducts roughly 4.5% for broker
+  fee and sales tax, so it is what a unit actually nets. <b>z</b> is the ask
+  against the item's own 30-day average: historically, items at z &le; -1.5
+  returned about +12.8% over the next week, 63% of the time.
+</div>
+
+<div class="wrap">
+  <table>
+    <thead><tr id="head"></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="note" id="note" hidden></div>
+</div>
+
+<script type="module">
+const URL_ = "https://hhnkjtbqeaegdxfoyuok.supabase.co";
+const KEY  = "sb_publishable_5KPQJAErYqd41xgrsI81lw_WYjfTKXt";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g,(m)=>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+const isk = (n) => {
+  if (n == null) return "—";
+  n = Number(n); const a = Math.abs(n);
+  if (a >= 1e12) return (n/1e12).toFixed(2)+"t";
+  if (a >= 1e9)  return (n/1e9).toFixed(2)+"b";
+  if (a >= 1e6)  return (n/1e6).toFixed(2)+"m";
+  if (a >= 1e3)  return (n/1e3).toFixed(1)+"k";
+  return n.toFixed(2);
+};
+const num = (n,d=2) => n == null ? "—" : Number(n).toFixed(d);
+
+const state = { sort:"daily_volume_30d", dir:-1, q:"", cheap:true, margin:false };
+
+const COLS = [
+  { k:"name", t:"Item", txt:true, r:(r)=>
+    `${esc(r.name || ("type "+r.type_id))}${r.z!=null&&r.z<=-1.5?'<span class="tag">OVERSOLD</span>':""}` },
+  { k:"best_bid", t:"Best bid", r:(r)=>isk(r.best_bid) },
+  { k:"best_ask", t:"Best ask", r:(r)=>isk(r.best_ask) },
+  { k:"spread_pct", t:"Spread", r:(r)=>num(r.spread_pct,1)+"%" },
+  { k:"margin_after_fees", t:"After fees", r:(r)=>
+    `<span class="${r.margin_after_fees>0?"up":"down"}">${isk(r.margin_after_fees)}</span>` },
+  { k:"z", t:"z", r:(r)=>`<span class="${r.z<0?"up":r.z>0?"down":""}">${num(r.z)}</span>` },
+  { k:"avg_30d", t:"30d avg", sm:true, r:(r)=>isk(r.avg_30d) },
+  { k:"daily_volume_30d", t:"Volume/day", r:(r)=>isk(r.daily_volume_30d) },
+  { k:"ask_volume", t:"On book", sm:true, r:(r)=>isk(r.ask_volume) },
+];
+
+function head(){
+  $("head").innerHTML = COLS.map((c)=>
+    `<th data-k="${c.k}" class="${c.txt?"txt":""}${c.sm?" hide-sm":""}"`+
+    (state.sort===c.k?` aria-sort="${state.dir===1?"ascending":"descending"}"`:"")+
+    `>${c.t}</th>`).join("");
+  document.querySelectorAll("th").forEach((th)=>th.addEventListener("click",()=>{
+    const k = th.dataset.k;
+    state.dir = state.sort===k ? -state.dir : -1;
+    state.sort = k; head(); load();
+  }));
+}
+
+function query(){
+  const p = ["select=*","tracked=is.true","limit=250"];
+  if (state.cheap) p.push("z=lte.-1.5");
+  if (state.margin) p.push("margin_after_fees=gt.0");
+  const v = $("minvol").value, s = $("maxspread").value;
+  if (+v > 0) p.push(`daily_volume_30d=gte.${v}`);
+  if (+s > 0) p.push(`spread_pct=lte.${s}`);
+  if (state.q.trim()) p.push(`name=ilike.*${encodeURIComponent(state.q.trim())}*`);
+  p.push(`order=${state.sort}.${state.dir===1?"asc":"desc"}.nullslast`);
+  return `v_eve_market?${p.join("&")}`;
+}
+
+function show(h){ $("note").hidden=false; $("note").innerHTML=h; $("rows").innerHTML=""; }
+
+async function load(){
+  try{
+    const res = await fetch(`${URL_}/rest/v1/${query()}`,
+      { headers:{ apikey:KEY, Authorization:`Bearer ${KEY}`, Prefer:"count=exact" } });
+    if(!res.ok) throw new Error(`${res.status} — ${(await res.text()).slice(0,140)}`);
+    const rows = await res.json();
+    const total = (res.headers.get("content-range")||"").split("/")[1];
+    if(!rows.length) return show("<b>Nothing matches.</b> Loosen the volume or spread filter.");
+    $("note").hidden = true;
+    $("rows").innerHTML = rows.map((r)=>"<tr>"+COLS.map((c)=>
+      `<td class="${c.txt?"txt":""}${c.sm?" hide-sm":""}">${c.r(r)}</td>`).join("")+"</tr>").join("");
+    $("stamp").textContent = total && +total > rows.length
+      ? `${rows.length} of ${(+total).toLocaleString()} · ${rows[0].snap_date}`
+      : `${rows.length} items · ${rows[0].snap_date}`;
+  }catch(e){
+    show(`<b>Could not reach the database.</b> ${esc(e.message)}<br><br>
+      If the table is empty the daily snapshot has not run. Trigger it with
+      <code>curl -X POST https://evenyx.netlify.app/.netlify/functions/eve-book-background</code>`);
+    $("stamp").textContent = "offline";
+  }
+}
+
+async function strip(){
+  try{
+    const g = async (p) => {
+      const r = await fetch(`${URL_}/rest/v1/${p}`,
+        { headers:{ apikey:KEY, Authorization:`Bearer ${KEY}`, Prefer:"count=exact" } });
+      return +((r.headers.get("content-range")||"").split("/")[1] || 0);
+    };
+    const tracked  = await g("eve_types?select=type_id&tracked=is.true&limit=1");
+    const hist     = await g("eve_history?select=type_id&limit=1");
+    const oversold = await g("v_eve_market?select=type_id&tracked=is.true&z=lte.-1.5&limit=1");
+    const r = await fetch(`${URL_}/rest/v1/eve_history?select=hist_date&order=hist_date.asc&limit=1`,
+      { headers:{ apikey:KEY, Authorization:`Bearer ${KEY}` } });
+    const oldest = (await r.json())[0]?.hist_date || "—";
+    $("strip").innerHTML = [
+      ["Tracked items", tracked.toLocaleString()],
+      ["History rows", hist.toLocaleString()],
+      ["History since", oldest],
+      ["Oversold now", oversold.toLocaleString()],
+      ["Region", "Jita / The Forge"],
+    ].map(([k,v])=>`<div class="cell"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+    $("strip").hidden = false;
+  }catch{ /* decoration only */ }
+}
+
+let t;
+$("q").addEventListener("input",(e)=>{clearTimeout(t);
+  t=setTimeout(()=>{state.q=e.target.value; load();},300);});
+for (const [id,key] of [["f-cheap","cheap"],["f-margin","margin"]]) {
+  $(id).addEventListener("click",(e)=>{
+    state[key] = !state[key];
+    e.currentTarget.setAttribute("aria-pressed",String(state[key]));
+    load();
+  });
+}
+$("minvol").addEventListener("change",load);
+$("maxspread").addEventListener("change",load);
+
+head(); load(); strip();
+</script>
+</body>
+</html>

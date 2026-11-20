@@ -1,0 +1,17 @@
+[build]
+  publish = "site"
+  functions = "functions"
+
+# --- schedules (UTC) ---
+
+# EVE's daily downtime is 11:00 UTC. Snapshot the Jita order book after it,
+# once the market has had time to repopulate. ~412k orders, under a minute.
+[functions."eve-book-background"]
+  background = true
+  schedule = "23 12 * * *"
+
+# ESI publishes history a day behind. This walks the tracked set in resumable
+# chunks; once caught up each run only refreshes recent days.
+[functions."eve-history-background"]
+  background = true
+  schedule = "47 12 * * *"
